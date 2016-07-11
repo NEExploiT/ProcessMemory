@@ -10,18 +10,19 @@ describe ProcessMemory do
     ProcessMemory::ProcessMemoryEx.new $PROCESS_ID
   }
 
+
+  TESTSTRING = 'fake strings'
+  TESTINT32 = 0xDEADBEEF
+  TESTINT64 = 0xCAFEBABE15C001
+
   describe '#ptr_buf' do
     it 'read string' do
-      TESTSTRING = 'fake strings'
       test = Fiddle::Pointer[TESTSTRING]
       expect(
         mem.ptr_buf(test, test.size)
       ).to eq(TESTSTRING)
     end
   end
-
-  TESTINT32 = 0xDEADBEEF
-  TESTINT64 = 0xCAFEBABE15C001
 
   describe '#ptr' do
     host_is_x64 = ProcessMemory::WinMemAPI::SIZEOF_PTR == 8 && 'ruby.exe is x64 version'
