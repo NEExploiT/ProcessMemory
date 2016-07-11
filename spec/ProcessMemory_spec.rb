@@ -10,7 +10,6 @@ describe ProcessMemory do
     ProcessMemory::ProcessMemoryEx.new Process.pid
   }
 
-
   TESTSTRING = 'fake strings'
   TESTINT32 = 0xDEADBEEF
   TESTINT64 = 0xCAFEBABE15C001
