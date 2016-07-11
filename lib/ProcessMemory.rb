@@ -1,0 +1,217 @@
+# coding: utf-8
+# 16/6/14 16進数文字列の判定を修正
+# 16/6/17 ウディタライブラリとの癒着を切り離し
+# 16/07/11 ターゲットプロセスが64bitの場合のバグ
+require "ProcessMemory/version"
+require 'fiddle/import'
+require 'fiddle/types'
+
+module ProcessMemory
+  module WinMemAPI
+    extend Fiddle::Importer
+    dlload 'kernel32', 'psapi'
+    include Fiddle::BasicTypes
+    include Fiddle::Win32Types
+
+    extern 'HANDLE OpenProcess(DWORD, BOOL, DWORD)', :stdcall
+    extern 'BOOL CloseHandle(HANDLE)', :stdcall
+    extern 'BOOL ReadProcessMemory(HANDLE, PVOID, LPSTR, DWORD, PDWORD)', :stdcall
+    extern 'BOOL WriteProcessMemory(HANDLE, PVOID, LPSTR, DWORD, PDWORD)', :stdcall
+
+    extern 'BOOL EnumProcessModulesEx(HANDLE, LPSTR, DWORD, PDWORD, DWORD)', :stdcall
+    extern 'DWORD GetModuleBaseNameW(HANDLE, HANDLE, LPSTR, DWORD)', :stdcall
+
+    module OpenProcFlg
+      PROC_READ = 0x10
+      PROC_WRITE = 0x20
+      PROC_Q_INFO = 0x0400
+      PROC_RW   = PROC_READ | PROC_WRITE
+      READ_INFO = PROC_READ | PROC_Q_INFO
+      RW_INFO   = PROC_RW   | PROC_Q_INFO
+    end
+    SIZEOF_PTR = sizeof 'void*'
+
+    module EnumFilterFlg
+      LIST_MODULES_32BIT = 1
+      LIST_MODULES_64BIT = 2
+      LIST_MODULES_ALL   = 3
+      LIST_MODULES_DEFAULT = 0
+    end
+  end
+
+=begin
+OpenProcessで取得したハンドルを閉じてないが
+ファイナライザで開放した方がいいかも？(大量にオープンしない限り問題は起きないはず)
+適当解放処理実装した
+=end
+  class ProcessMemoryEx
+    # @@i_am_x64 = ENV['PROCESSOR_ARCHITECTURE'] != 'x86'
+    @@i_am_x64 = WinMemAPI::SIZEOF_PTR == 8
+
+    # コンストラクタ
+    # @param [Integer] pid プロセスID
+    def initialize(pid)
+      @pid       = pid
+      @h_process = WinMemAPI.OpenProcess(WinMemAPI::OpenProcFlg::READ_INFO, 0, pid)
+      # オープン失敗
+      raise ArgumentError, "process open failed. pid:#{@pid}" if @h_process == 0
+
+      @target_is_x64 = detect_x64
+
+      @@latest = self
+
+      # 一応解放処理
+      at_exit{
+        WinMemAPI.CloseHandle(@h_process)
+      }
+    end
+
+=begin
+  無駄にAPIを増やすべきではないのでボツ
+  var = struct.new ptr_buf(addr, struct.size)
+  で対処すべき
+  # 構造体を読み込む
+  # @param [Integer] addr 読み取りアドレス
+  # @param [Class] struct_klass 構造体クラス
+  # @return [Fiddle::CStruct] 読み取った構造体
+  def ptr_struct(addr, struct)
+    buf = struct.malloc
+    size_buf = "\0\0\0\0\0\0\0\0".b
+    WinMemAPI.ReadProcessMemory(@h_process, addr, buf, struct.size, size_buf)
+    buf
+  end
+=end
+
+    # 指定サイズ読み込む
+    # @param [Integer] addr 読み取り元アドレス
+    # @param [Integer] size 読み込みサイズ
+    # @return [String] 読み取ったデータ
+    def ptr_buf(addr, size)
+      buffer = "\0" * size
+      lpsize = "\0\0\0\0\0\0\0\0".b
+      WinMemAPI.ReadProcessMemory(@h_process, addr, buffer, size, lpsize)
+      buffer
+    end
+
+    # データを読み込み、指定フォーマットでunpackした結果を返す
+    # @param addr [Integer] 読み取り元アドレス
+    # @param size [Integer] 読み込みサイズ
+    # @param fmt  [String]  pack文字列
+    # @return 指定アドレスを読み込んだ結果にunpackしたもの もしsizeが1以下の場合は最初の要素を返す
+    def ptr_fmt(addr, size, fmt)
+      ary = ptr_buf(addr, size).unpack(fmt)
+      ary.size > 1 ? ary : ary.first
+    end
+
+    # 指定アドレスから4byteもしくは8byte読み込みリトルエンディアンの整数とみなした結果を返す
+    # @param addr [Integer] 読み取り元アドレス
+    # @return [Integer] 読み取ったデータ
+    def ptr(addr)
+      @target_is_x64 ? ptr_fmt(addr, 8, 'VV').tap{|l,h| break h << 32 | l } : ptr_fmt(addr, 4, 'V')
+    end
+
+    # modules
+    # アドレスをキー,モジュール名を値としたハッシュを返す
+    # 重複を考えてモジュール名をキーとしない
+    def modules
+      @modules ||= modules_read.to_h
+    end
+
+    # detect_x64
+    # target プロセスが64bitか否かを判別する
+    # true => 64bit process
+    # false => 32bit process
+    def detect_x64
+      lpcbNeeded = "\0\0\0\0\0\0\0\0".b
+
+      WinMemAPI.EnumProcessModulesEx(@h_process, 0, 0, lpcbNeeded, WinMemAPI::EnumFilterFlg::LIST_MODULES_32BIT)
+      (lpcbNeeded.unpack('V')[0]) == 0
+    end
+
+    def modules_read
+      len = 32 * WinMemAPI::SIZEOF_PTR
+      initial_len = len
+      lphModule = "\0" * len
+      lpcbNeeded = "\0\0\0\0\0\0\0\0".b
+      # 対象プロセスが64bitの場合は変更する
+      flg = @target_is_x64 ? WinMemAPI::EnumFilterFlg::LIST_MODULES_64BIT : WinMemAPI::EnumFilterFlg::LIST_MODULES_32BIT
+
+      WinMemAPI.EnumProcessModulesEx(@h_process, lphModule, len, lpcbNeeded, flg)
+      if (len = lpcbNeeded.unpack('V')[0]) > initial_len
+        lphModule = "\0" * len
+        WinMemAPI.EnumProcessModulesEx(@h_process, lphModule, len, lpcbNeeded, flg)
+      elsif len == 0 && !@target_is_x64
+        # ターゲットはおそらく64bit(もしくは権限不足,openに失敗)
+        @target_is_x64 = true
+        return modules_read
+      elsif len == 0
+        # 失敗
+        return nil
+      end
+
+      result = lphModule.unpack('V*')
+      if @@i_am_x64
+        # hostが64bitの場合 ポインタサイズが64bitなので一気に変換はできない
+        result = result.each_slice(2).map{|l,h|
+          h << 32 | l
+        }
+      end
+
+      # exeのベースアドレスを取得
+      @main_module_addr ||= result[0]
+
+      # GetModuleBaseNameでベース名を取得する
+      result.select{|it| it != 0}.map{|it|
+        namelen = 260
+        namebuf = "\0".encode(Encoding::UTF_16LE) * namelen
+        result_len = WinMemAPI.GetModuleBaseNameW(@h_process, it, namebuf, namelen)
+        next [it, namebuf[0,result_len].encode(Encoding::UTF_8)] if result_len > 0
+        # TODO: 失敗 260で足りない事はないと思うんだが一応
+        [it, nil]
+      }
+    end
+
+    def base_addr name = nil
+      name ? MName(name) : @main_module_addr
+    end
+    # SSGのMName::に対応
+    def MName(name)
+      modules.select{|k, v| v == name}.sort[0][0]
+    end
+
+    def self.ptr(addr)
+      @@latest.ptr addr
+    end
+    def self.ptr_buf(addr, size)
+      @@latest.ptr_buf addr, size
+    end
+    def self.ptr_fmt(addr, size, fmt)
+      @@latest.ptr_fmt addr, size, fmt
+    end
+    def self.MName(name)
+      @@latest.MName name
+    end
+  end # End of class ProcessMemoryEx
+
+  # ユーティリティーモジュール
+  # includeする事で、省略記法が使えるようになる
+  module ProcessMemoryUtil
+    def ptr addr
+      ProcessMemoryEx.ptr addr
+    end
+    def MName name
+      ProcessMemoryEx.MName name
+    end
+    def memoryutil_startup
+      if ARGV.size == 0
+        puts '対象exeのpidを入力してください'
+        s = gets.chop
+      else
+        s = ARGV[0]
+      end
+
+      ProcessMemoryEx.new s.to_i 0
+    end
+  end # End of Module ProcessMemoryUtil
+
+end # End of Module ProcessMemory
