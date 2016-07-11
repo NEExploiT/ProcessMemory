@@ -1,0 +1,78 @@
+#AllCops:
+#  TargetRubyVersion: 2.1
+
+Style/FileName:
+  Enabled: false
+
+Style/BlockComments:
+  Exclude:
+    - 'lib/ProcessMemory.rb'
+
+# Limit lines to 80 characters.
+#LineLength:
+#  Enabled: false
+Metrics/LineLength:
+  Max: 127
+Metrics/MethodLength:
+  Enabled: false
+#  Max: 30
+
+#default:15
+Metrics/AbcSize:
+  Max: 30
+
+# for japanese comment
+AsciiComments:
+  Enabled: false
+
+# dont remove self
+RedundantSelf:
+  Enabled: false
+
+# %literal
+# %w[a b] is array!
+Style/PercentLiteralDelimiters:
+  #Enabled: false
+  PreferredDelimiters:
+    '%':  ()
+    '%i': '[]'
+    '%I': '[]'
+    '%q': ()
+    '%Q': ()
+    '%r': '{}'
+    '%s': ()
+    '%w': '[]'
+    '%W': '[]'
+    '%x': ()
+
+# I like this
+# {} => do ~ end
+# but I like {}
+Style/BlockDelimiters:
+  Enabled: false
+
+# proc{|x|} => proc {|x|}
+# but I dont like space.
+Style/SpaceBeforeBlockBraces:
+  EnforcedStyle: no_space
+  #Enabled: false
+Style/SpaceInsideBlockBraces:
+  SpaceBeforeBlockParameters: false
+
+# dont use ===
+# (I like /xxx/ === "hoge"
+# but JSer ...)
+Style/CaseEquality:
+  Enabled: false
+# /end of my like this
+
+# test code isn't need freeze
+Style/MutableConstant:
+  Exclude:
+    - 'spec/*_spec.rb'
+AllCops:
+   Exclude:
+    - 'spec/spec_helper.rb'
+    - '*.gemspec'
+    - 'Rakefile'
+    - 'bin/*'

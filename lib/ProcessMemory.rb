@@ -2,11 +2,14 @@
 # 16/6/14 16進数文字列の判定を修正
 # 16/6/17 ウディタライブラリとの癒着を切り離し
 # 16/07/11 ターゲットプロセスが64bitの場合のバグ
-require "ProcessMemory/version"
+# 16/07/11 module ProcessMemory内に隔離……不要な気もする
+
+require 'ProcessMemory/version'
 require 'fiddle/import'
 require 'fiddle/types'
 
 module ProcessMemory
+  # Windows API Wrapper
   module WinMemAPI
     extend Fiddle::Importer
     dlload 'kernel32', 'psapi'
@@ -107,7 +110,7 @@ OpenProcessで取得したハンドルを閉じてないが
     # @param addr [Integer] 読み取り元アドレス
     # @return [Integer] 読み取ったデータ
     def ptr(addr)
-      @target_is_x64 ? ptr_fmt(addr, 8, 'VV').tap{|l,h| break h << 32 | l } : ptr_fmt(addr, 4, 'V')
+      @target_is_x64 ? ptr_fmt(addr, 8, 'VV').tap{|l, h| break h << 32 | l } : ptr_fmt(addr, 4, 'V')
     end
 
     # modules
@@ -152,7 +155,7 @@ OpenProcessで取得したハンドルを閉じてないが
       result = lphModule.unpack('V*')
       if @@i_am_x64
         # hostが64bitの場合 ポインタサイズが64bitなので一気に変換はできない
-        result = result.each_slice(2).map{|l,h|
+        result = result.each_slice(2).map{|l, h|
           h << 32 | l
         }
       end
@@ -161,33 +164,37 @@ OpenProcessで取得したハンドルを閉じてないが
       @main_module_addr ||= result[0]
 
       # GetModuleBaseNameでベース名を取得する
-      result.select{|it| it != 0}.map{|it|
+      result.select{|it| it != 0 }.map{|it|
         namelen = 260
         namebuf = "\0".encode(Encoding::UTF_16LE) * namelen
         result_len = WinMemAPI.GetModuleBaseNameW(@h_process, it, namebuf, namelen)
-        next [it, namebuf[0,result_len].encode(Encoding::UTF_8)] if result_len > 0
+        next [it, namebuf[0, result_len].encode(Encoding::UTF_8)] if result_len > 0
         # TODO: 失敗 260で足りない事はないと思うんだが一応
         [it, nil]
       }
     end
 
-    def base_addr name = nil
+    def base_addr(name = nil)
       name ? MName(name) : @main_module_addr
     end
+
     # SSGのMName::に対応
     def MName(name)
-      modules.select{|k, v| v == name}.sort[0][0]
+      modules.select{|_, v| v == name }.sort[0][0]
     end
 
     def self.ptr(addr)
       @@latest.ptr addr
     end
+
     def self.ptr_buf(addr, size)
       @@latest.ptr_buf addr, size
     end
+
     def self.ptr_fmt(addr, size, fmt)
       @@latest.ptr_fmt addr, size, fmt
     end
+
     def self.MName(name)
       @@latest.MName name
     end
@@ -196,14 +203,16 @@ OpenProcessで取得したハンドルを閉じてないが
   # ユーティリティーモジュール
   # includeする事で、省略記法が使えるようになる
   module ProcessMemoryUtil
-    def ptr addr
+    def ptr(addr)
       ProcessMemoryEx.ptr addr
     end
-    def MName name
+
+    def MName(name)
       ProcessMemoryEx.MName name
     end
+
     def memoryutil_startup
-      if ARGV.size == 0
+      if ARGV.empty?
         puts '対象exeのpidを入力してください'
         s = gets.chop
       else
@@ -213,5 +222,4 @@ OpenProcessで取得したハンドルを閉じてないが
       ProcessMemoryEx.new s.to_i 0
     end
   end # End of Module ProcessMemoryUtil
-
 end # End of Module ProcessMemory

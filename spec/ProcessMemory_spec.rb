@@ -7,12 +7,12 @@ describe ProcessMemory do
   end
 
   let(:mem){
-    ProcessMemory::ProcessMemoryEx.new $$
+    ProcessMemory::ProcessMemoryEx.new $PROCESS_ID
   }
 
   describe '#ptr_buf' do
     it 'read string' do
-      TESTSTRING = "fake strings"
+      TESTSTRING = 'fake strings'
       test = Fiddle::Pointer[TESTSTRING]
       expect(
         mem.ptr_buf(test, test.size)
@@ -32,13 +32,13 @@ describe ProcessMemory do
       expect(mem.ptr(testp)).to eq(TESTINT32)
     end
 
-    context 'when host(ruby.exe) is x64', :skip => host_is_x86 do
+    context 'when host(ruby.exe) is x64', skip: host_is_x86 do
       it 'read int64' do
         testp = Fiddle::Pointer[[TESTINT64].pack('q')]
         expect(mem.ptr(testp)).to eq(TESTINT64)
       end
     end
-    context 'when host(ruby.exe) is x86', :skip => host_is_x64 do
+    context 'when host(ruby.exe) is x86', skip: host_is_x64 do
       it 'does not read int64' do
         testp = Fiddle::Pointer[[TESTINT64].pack('q')]
         expect(mem.ptr(testp)).to_not eq(TESTINT64)
