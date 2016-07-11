@@ -7,7 +7,7 @@ describe ProcessMemory do
   end
 
   let(:mem){
-    ProcessMemory::ProcessMemoryEx.new Process::pid
+    ProcessMemory::ProcessMemoryEx.new Process.pid
   }
 
 
