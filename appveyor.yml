@@ -8,8 +8,7 @@ install:
   - bundle config --local path vendor/bundle
   - bundle install
 
-build:
-  - off
+build: off
 
 before_test:
   - ruby -v
@@ -17,7 +16,7 @@ before_test:
   - bundle -v
 
 test_script:
-  - rake spec
+  - bundle exec rake spec
 
 environment:
   matrix:
