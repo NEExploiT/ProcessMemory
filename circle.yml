@@ -1,0 +1,19 @@
+machine:
+  timezone: Asia/Tokyo
+  ruby:
+    version: 2.3.1
+dependencies:
+  cache_directories:
+    - "vendor/bundle"
+  pre:
+    - gem uninstall bundler
+    - gem install bundler
+  override:
+    - bundle check --path=vendor/bundle || bundle install --path=vendor/bundle --jobs=4 --retry=3 
+deployment:
+  release:
+    branch: master
+    commands:
+      - go get github.com/tcnksm/ghr
+      - rake build
+      - ghr -t $GITHUB_API_TOKEN -u $CIRCLE_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `ruby -r./lib/ProcessMemory/version -e "puts ProcessMemory::VERSION"`-dev pkg/
