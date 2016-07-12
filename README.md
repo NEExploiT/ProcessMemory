@@ -5,10 +5,10 @@ Ruby on Windows からProcessMemory を読み取ったり書き込んだりす�
 
 ## Installation
 
-ダウンロードして
+[ReleasePage](https://github.com/NEExploiT/ProcessMemory/releases) から ProcessMemory-*.*.*.gem をダウンロードして
 
 ```
-rake install
+gem install --local ProcessMemory-*.*.*.gem
 ```
 
 してください
