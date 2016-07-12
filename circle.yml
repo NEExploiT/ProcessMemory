@@ -1,0 +1,25 @@
+machine:
+  timezone: Asia/Tokyo
+  ruby:
+    version: 2.3.1
+dependencies:
+  pre:
+    - gem update bundler
+  override:
+    - bundle check --path=vendor/bundle || bundle install --path=vendor/bundle --jobs=4 --retry=3 
+test:
+  override:
+    - echo "test skip"
+deployment:
+  develop:
+    branch: develop
+    commands:
+      - go get github.com/tcnksm/ghr
+      - bundle exec rake build
+      - ghr -t $GITHUB_API_TOKEN -u $CIRCLE_USERNAME -r $CIRCLE_PROJECT_REPONAME -c $CIRCLE_SHA1 --replace --prerelease $(ruby -r./lib/ProcessMemory/version -e "puts ProcessMemory::VERSION")-dev pkg
+  master:
+    branch: master
+    commands:
+      - go get github.com/tcnksm/ghr
+      - bundle exec rake build
+      - ghr -t $GITHUB_API_TOKEN -u $CIRCLE_USERNAME -r $CIRCLE_PROJECT_REPONAME -c $CIRCLE_SHA1 --replace $(ruby -r./lib/ProcessMemory/version -e "puts ProcessMemory::VERSION") pkg

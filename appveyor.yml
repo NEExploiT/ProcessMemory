@@ -1,16 +1,22 @@
----
+cache:
+  - vendor/bundle
+
 version: "{build}"
-clone_depth: 1
+
 install:
   - SET PATH=C:\Ruby%ruby_version%\bin;%PATH%
-  - ruby --version
-  - gem --version
+  - bundle config --local path vendor/bundle
   - bundle install
-build_script:
-  - where rake
-  - where ruby
+
+build: off
+
+before_test:
+  - ruby -v
+  - gem -v
+  - bundle -v
+
 test_script:
-  - rake spec
+  - bundle exec rake spec
 
 environment:
   matrix:
