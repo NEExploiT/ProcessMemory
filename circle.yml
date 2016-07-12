@@ -16,7 +16,7 @@ deployment:
     commands:
       - go get github.com/tcnksm/ghr
       - bundle exec rake build
-      - ghr -t $GITHUB_API_TOKEN -u $CIRCLE_USERNAME -r $CIRCLE_PROJECT_REPONAME -c $CIRCLE_SHA1 --replace $(ruby -r./lib/ProcessMemory/version -e "puts ProcessMemory::VERSION")-dev --prerelease pkg
+      - ghr -t $GITHUB_API_TOKEN -u $CIRCLE_USERNAME -r $CIRCLE_PROJECT_REPONAME -c $CIRCLE_SHA1 --replace --prerelease $(ruby -r./lib/ProcessMemory/version -e "puts ProcessMemory::VERSION")-dev pkg
   master:
     branch: master
     commands:
