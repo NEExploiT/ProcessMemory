@@ -173,7 +173,9 @@ OpenProcessで取得したハンドルを閉じてないが
     end
 
     # SSGのMName::に対応
-    def MName(name)
+    # @param name [String] モジュールの名前 nilの場合は実行ファイルのベースを取得
+    # @return 指定モジュールのベースアドレス
+    def MName(name) # rubocop:disable Style/MethodName
       modules.select{|_, v| v == name }.sort[0][0]
     end
 
@@ -189,7 +191,7 @@ OpenProcessで取得したハンドルを閉じてないが
       @@latest.ptr_fmt addr, size, fmt
     end
 
-    def self.MName(name)
+    def self.MName(name) # rubocop:disable Style/MethodName
       @@latest.MName name
     end
   end # End of class ProcessMemoryEx
@@ -201,7 +203,7 @@ OpenProcessで取得したハンドルを閉じてないが
       ProcessMemoryEx.ptr addr
     end
 
-    def MName(name)
+    def MName(name) # rubocop:disable Style/MethodName
       ProcessMemoryEx.MName name
     end
 
