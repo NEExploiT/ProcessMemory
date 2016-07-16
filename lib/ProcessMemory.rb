@@ -1,9 +1,4 @@
 # coding: utf-8
-# 16/6/14 16進数文字列の判定を修正
-# 16/6/17 ウディタライブラリとの癒着を切り離し
-# 16/07/11 ターゲットプロセスが64bitの場合のバグ
-# 16/07/11 module ProcessMemory内に隔離……不要な気もする
-
 require 'ProcessMemory/version'
 require 'fiddle/import'
 require 'fiddle/types'
@@ -48,7 +43,6 @@ OpenProcessで取得したハンドルを閉じてないが
 適当解放処理実装した
 =end
   class ProcessMemoryEx
-    # @@i_am_x64 = ENV['PROCESSOR_ARCHITECTURE'] != 'x86'
     @@i_am_x64 = WinMemAPI::SIZEOF_PTR == 8
 
     # コンストラクタ
