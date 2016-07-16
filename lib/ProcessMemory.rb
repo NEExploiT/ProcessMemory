@@ -63,22 +63,6 @@ OpenProcessで取得したハンドルを閉じてないが
       }
     end
 
-=begin
-  無駄にAPIを増やすべきではないのでボツ
-  var = struct.new ptr_buf(addr, struct.size)
-  で対処すべき
-  # 構造体を読み込む
-  # @param [Integer] addr 読み取りアドレス
-  # @param [Class] struct_klass 構造体クラス
-  # @return [Fiddle::CStruct] 読み取った構造体
-  def ptr_struct(addr, struct)
-    buf = struct.malloc
-    size_buf = "\0\0\0\0\0\0\0\0".b
-    WinMemAPI.ReadProcessMemory(@h_process, addr, buf, struct.size, size_buf)
-    buf
-  end
-=end
-
     # 指定サイズ読み込む
     # @param [Integer] addr 読み取り元アドレス
     # @param [Integer] size 読み込みサイズ
