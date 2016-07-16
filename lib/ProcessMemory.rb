@@ -168,8 +168,15 @@ OpenProcessで取得したハンドルを閉じてないが
       }
     end
 
+    # @param (option) name [String] モジュールの名前 nilの場合は実行ファイルのベースを取得
+    # @return 指定モジュールのベースアドレス
     def base_addr(name = nil)
-      name ? MName(name) : @main_module_addr
+      if name.to_s.empty?
+        MName name
+      else
+        modules unless @main_module_addr.nil?
+        @main_module_addr
+      end
     end
 
     # SSGのMName::に対応
