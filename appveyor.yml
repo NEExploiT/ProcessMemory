@@ -3,6 +3,8 @@ cache:
 
 version: "{build}"
 
+shallow_clone: true
+
 install:
   - SET PATH=C:\Ruby%ruby_version%\bin;%PATH%
   - bundle config --local path vendor/bundle
