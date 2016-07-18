@@ -1,9 +1,4 @@
 # coding: utf-8
-# 16/6/14 16進数文字列の判定を修正
-# 16/6/17 ウディタライブラリとの癒着を切り離し
-# 16/07/11 ターゲットプロセスが64bitの場合のバグ
-# 16/07/11 module ProcessMemory内に隔離……不要な気もする
-
 require 'ProcessMemory/version'
 require 'fiddle/import'
 require 'fiddle/types'
@@ -48,7 +43,6 @@ OpenProcessで取得したハンドルを閉じてないが
 適当解放処理実装した
 =end
   class ProcessMemoryEx
-    # @@i_am_x64 = ENV['PROCESSOR_ARCHITECTURE'] != 'x86'
     @@i_am_x64 = WinMemAPI::SIZEOF_PTR == 8
 
     # コンストラクタ
@@ -68,22 +62,6 @@ OpenProcessで取得したハンドルを閉じてないが
         WinMemAPI.CloseHandle(@h_process)
       }
     end
-
-=begin
-  無駄にAPIを増やすべきではないのでボツ
-  var = struct.new ptr_buf(addr, struct.size)
-  で対処すべき
-  # 構造体を読み込む
-  # @param [Integer] addr 読み取りアドレス
-  # @param [Class] struct_klass 構造体クラス
-  # @return [Fiddle::CStruct] 読み取った構造体
-  def ptr_struct(addr, struct)
-    buf = struct.malloc
-    size_buf = "\0\0\0\0\0\0\0\0".b
-    WinMemAPI.ReadProcessMemory(@h_process, addr, buf, struct.size, size_buf)
-    buf
-  end
-=end
 
     # 指定サイズ読み込む
     # @param [Integer] addr 読み取り元アドレス
@@ -174,12 +152,21 @@ OpenProcessで取得したハンドルを閉じてないが
       }
     end
 
+    # @param (option) name [String] モジュールの名前 nilの場合は実行ファイルのベースを取得
+    # @return 指定モジュールのベースアドレス
     def base_addr(name = nil)
-      name ? MName(name) : @main_module_addr
+      unless name.to_s.empty?
+        MName name
+      else
+        modules if @main_module_addr.nil?
+        @main_module_addr
+      end
     end
 
     # SSGのMName::に対応
-    def MName(name)
+    # @param name [String] モジュールの名前 nilの場合は実行ファイルのベースを取得
+    # @return 指定モジュールのベースアドレス
+    def MName(name) # rubocop:disable Style/MethodName
       modules.select{|_, v| v == name }.sort[0][0]
     end
 
@@ -195,7 +182,7 @@ OpenProcessで取得したハンドルを閉じてないが
       @@latest.ptr_fmt addr, size, fmt
     end
 
-    def self.MName(name)
+    def self.MName(name) # rubocop:disable Style/MethodName
       @@latest.MName name
     end
   end # End of class ProcessMemoryEx
@@ -207,7 +194,7 @@ OpenProcessで取得したハンドルを閉じてないが
       ProcessMemoryEx.ptr addr
     end
 
-    def MName(name)
+    def MName(name) # rubocop:disable Style/MethodName
       ProcessMemoryEx.MName name
     end
 
