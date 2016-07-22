@@ -81,7 +81,7 @@ OpenProcessで取得したハンドルを閉じてないが
     # @return 指定アドレスを読み込んだ結果にunpackしたもの もしsizeが1以下の場合は最初の要素を返す
     def ptr_fmt(addr, size, fmt)
       ary = ptr_buf(addr, size).unpack(fmt)
-      ary.size > 1 ? ary : ary.first
+      ary.size == 1 ? ary[0] : ary
     end
 
     # 指定アドレスから4byteもしくは8byte読み込みリトルエンディアンの整数とみなした結果を返す
@@ -155,11 +155,11 @@ OpenProcessで取得したハンドルを閉じてないが
     # @param (option) name [String] モジュールの名前 nilの場合は実行ファイルのベースを取得
     # @return 指定モジュールのベースアドレス
     def base_addr(name = nil)
-      unless name.to_s.empty?
-        MName name
-      else
+      if name.to_s.empty?
         modules if @main_module_addr.nil?
         @main_module_addr
+      else
+        MName name
       end
     end
 
@@ -190,15 +190,15 @@ OpenProcessで取得したハンドルを閉じてないが
   # ユーティリティーモジュール
   # includeする事で、省略記法が使えるようになる
   module ProcessMemoryUtil
-    def ptr(addr)
+    module_function def ptr(addr)
       ProcessMemoryEx.ptr addr
     end
 
-    def MName(name) # rubocop:disable Style/MethodName
+    module_function def MName(name) # rubocop:disable Style/MethodName
       ProcessMemoryEx.MName name
     end
 
-    def memoryutil_startup
+    module_function def memoryutil_startup
       if ARGV.empty?
         puts '対象exeのpidを入力してください'
         s = gets.chop
