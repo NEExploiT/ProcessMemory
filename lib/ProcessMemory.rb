@@ -190,15 +190,15 @@ OpenProcessで取得したハンドルを閉じてないが
   # ユーティリティーモジュール
   # includeする事で、省略記法が使えるようになる
   module ProcessMemoryUtil
-    def ptr(addr)
+    module_function def ptr(addr)
       ProcessMemoryEx.ptr addr
     end
 
-    def MName(name) # rubocop:disable Style/MethodName
+    module_function def MName(name) # rubocop:disable Style/MethodName
       ProcessMemoryEx.MName name
     end
 
-    def memoryutil_startup
+    module_function def memoryutil_startup
       if ARGV.empty?
         puts '対象exeのpidを入力してください'
         s = gets.chop
