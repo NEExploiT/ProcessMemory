@@ -1,8 +1,7 @@
 require 'ProcessMemory'
 
-require './lib/pe/header.rb'
-require './lib/pe/sections.rb'
-# Dir[File.dirname(__FILE__) + '/pe/*.rb'].each{|file| require file }
+require 'ProcessMemory/pe/header'
+require 'ProcessMemory/pe/sections'
 
 module PE
   # メモリ上のPEフォーマットを扱う
