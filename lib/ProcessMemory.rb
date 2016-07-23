@@ -118,10 +118,6 @@ module ProcessMemory
       if (len = lpcb_needed.unpack('V')[0]) > initial_len
         lph_module = "\0" * len
         WinMemAPI.EnumProcessModulesEx(@h_process, lph_module, len, lpcb_needed, flg)
-      elsif len == 0 && !@target_is_x64
-        # ターゲットはおそらく64bit(もしくは権限不足,openに失敗)
-        @target_is_x64 = true
-        return modules_read
       elsif len == 0
         # 失敗
         return nil
