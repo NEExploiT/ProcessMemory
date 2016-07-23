@@ -40,7 +40,7 @@ module ProcessMemory
   # TODO: ファイナライザ
   # ProcessMemory External
   class ProcessMemoryEx
-    @@i_am_x64 = WinMemAPI::SIZEOF_PTR == 8
+    I_am_x64 = WinMemAPI::SIZEOF_PTR == 8
 
     # コンストラクタ
     # @param [Integer] pid プロセスID
@@ -129,6 +129,7 @@ module ProcessMemory
 
       result = lphModule.unpack('V*')
       if @@i_am_x64
+      if I_am_x64
         # hostが64bitの場合 ポインタサイズが64bitなので一気に変換はできない
         result = result.each_slice(2).map{|l, h|
           h << 32 | l
