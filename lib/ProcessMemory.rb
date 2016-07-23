@@ -52,7 +52,7 @@ module ProcessMemory
 
       @target_is_x64 = detect_x64
 
-      @@latest = self
+      @@latest = self # rubocop:disable Style/ClassVars
 
       # 一応解放処理
       at_exit{
