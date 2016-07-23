@@ -37,11 +37,8 @@ module ProcessMemory
     end
   end
 
-=begin
-OpenProcessで取得したハンドルを閉じてないが
-ファイナライザで開放した方がいいかも？(大量にオープンしない限り問題は起きないはず)
-適当解放処理実装した
-=end
+  # TODO: ファイナライザ
+  # ProcessMemory External
   class ProcessMemoryEx
     @@i_am_x64 = WinMemAPI::SIZEOF_PTR == 8
 
