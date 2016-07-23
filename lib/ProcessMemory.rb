@@ -100,24 +100,24 @@ module ProcessMemory
     # true => 64bit process
     # false => 32bit process
     def detect_x64
-      lpcbNeeded = "\0\0\0\0\0\0\0\0".b
+      lpcb_needed = "\0\0\0\0\0\0\0\0".b
 
-      WinMemAPI.EnumProcessModulesEx(@h_process, 0, 0, lpcbNeeded, WinMemAPI::EnumFilterFlg::LIST_MODULES_32BIT)
-      (lpcbNeeded.unpack('V')[0]) == 0
+      WinMemAPI.EnumProcessModulesEx(@h_process, 0, 0, lpcb_needed, WinMemAPI::EnumFilterFlg::LIST_MODULES_32BIT)
+      (lpcb_needed.unpack('V')[0]) == 0
     end
 
     def modules_read
       len = 32 * WinMemAPI::SIZEOF_PTR
       initial_len = len
-      lphModule = "\0" * len
-      lpcbNeeded = "\0\0\0\0\0\0\0\0".b
+      lph_module = "\0" * len
+      lpcb_needed = "\0\0\0\0\0\0\0\0".b
       # 対象プロセスが64bitの場合は変更する
       flg = @target_is_x64 ? WinMemAPI::EnumFilterFlg::LIST_MODULES_64BIT : WinMemAPI::EnumFilterFlg::LIST_MODULES_32BIT
 
-      WinMemAPI.EnumProcessModulesEx(@h_process, lphModule, len, lpcbNeeded, flg)
-      if (len = lpcbNeeded.unpack('V')[0]) > initial_len
-        lphModule = "\0" * len
-        WinMemAPI.EnumProcessModulesEx(@h_process, lphModule, len, lpcbNeeded, flg)
+      WinMemAPI.EnumProcessModulesEx(@h_process, lph_module, len, lpcb_needed, flg)
+      if (len = lpcb_needed.unpack('V')[0]) > initial_len
+        lph_module = "\0" * len
+        WinMemAPI.EnumProcessModulesEx(@h_process, lph_module, len, lpcb_needed, flg)
       elsif len == 0 && !@target_is_x64
         # ターゲットはおそらく64bit(もしくは権限不足,openに失敗)
         @target_is_x64 = true
@@ -127,8 +127,7 @@ module ProcessMemory
         return nil
       end
 
-      result = lphModule.unpack('V*')
-      if @@i_am_x64
+      result = lph_module.unpack('V*')
       if I_am_x64
         # hostが64bitの場合 ポインタサイズが64bitなので一気に変換はできない
         result = result.each_slice(2).map{|l, h|
