@@ -57,4 +57,16 @@ describe ProcessMemory do
       expect(mem.ptr_fmt(testp, testp.size, 'qq')).to eq(test_data)
     end
   end # End of describe '#ptr_fmt'
+
+  describe ProcessMemory::ProcessMemoryUtil do
+    before :all do
+      ProcessMemory::ProcessMemoryEx.new Process.pid
+    end
+    describe '.ptr' do
+      it 'read int32' do
+        testp = Fiddle::Pointer[[TESTINT32].pack('q')]
+        expect(ProcessMemory::ProcessMemoryUtil.ptr(testp)).to eq(TESTINT32)
+      end
+    end
+  end
 end # describe ProcessMemory
