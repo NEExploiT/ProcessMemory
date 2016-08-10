@@ -42,6 +42,15 @@ module ProcessMemory
   class ProcessMemoryEx
     I_am_x64 = WinMemAPI::SIZEOF_PTR == 8
 
+    class << self
+      def finalizer_callback(id, handle)
+        @handles_table   ||= {}
+        @handles_table[id] = handle
+        proc{|final_id|
+          WinMemAPI.CloseHandle(@handles_table[final_id])
+        }
+      end
+
     # コンストラクタ
     # @param [Integer] pid プロセスID
     def initialize(pid)
@@ -53,11 +62,8 @@ module ProcessMemory
       @target_is_x64 = detect_x64
 
       @@latest = self # rubocop:disable Style/ClassVars
-
-      # 一応解放処理
-      at_exit{
-        WinMemAPI.CloseHandle(@h_process)
-      }
+      # ファイナライザに登録
+      ObjectSpace.define_finalizer(self, ProcessMemoryEx.finalizer_callback(self.__id__, @h_process))
     end
 
     # 指定サイズ読み込む
