@@ -51,6 +51,11 @@ module ProcessMemory
         }
       end
 
+      # 直前に開いたProcessMemoryExを返す
+      def latest
+        # 子孫クラスからも書き換えられる事を想定しているのでクラス変数を使う
+        @@latest
+      end
     end
 
     # コンストラクタ
