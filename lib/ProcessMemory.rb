@@ -64,7 +64,7 @@ module ProcessMemory
       @pid       = pid
       @h_process = WinMemAPI.OpenProcess(WinMemAPI::OpenProcFlg::READ_INFO, 0, pid)
       # オープン失敗
-      raise ArgumentError, "process open failed. pid:#{@pid}" if @h_process == 0
+      raise ArgumentError, "process open failed. pid:#{@pid}" if @h_process.zero?
 
       @target_is_x64 = detect_x64
 
@@ -116,7 +116,7 @@ module ProcessMemory
       lpcb_needed = "\0\0\0\0\0\0\0\0".b
 
       WinMemAPI.EnumProcessModulesEx(@h_process, 0, 0, lpcb_needed, WinMemAPI::EnumFilterFlg::LIST_MODULES_32BIT)
-      (lpcb_needed.unpack('V')[0]) == 0
+      (lpcb_needed.unpack('V')[0]).zero?
     end
 
     def modules_read
@@ -131,7 +131,7 @@ module ProcessMemory
       if (len = lpcb_needed.unpack('V')[0]) > initial_len
         lph_module = "\0" * len
         WinMemAPI.EnumProcessModulesEx(@h_process, lph_module, len, lpcb_needed, flg)
-      elsif len == 0
+      elsif len.zero?
         # 失敗
         return nil
       end
@@ -148,7 +148,7 @@ module ProcessMemory
       @main_module_addr ||= result[0]
 
       # GetModuleBaseNameでベース名を取得する
-      result.select{|it| it != 0 }.map{|it|
+      result.select(&:nonzero?).map{|it|
         namelen = 260
         namebuf = "\0".encode(Encoding::UTF_16LE) * namelen
         result_len = WinMemAPI.GetModuleBaseNameW(@h_process, it, namebuf, namelen)
