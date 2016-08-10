@@ -176,20 +176,22 @@ module ProcessMemory
       modules.select{|_, v| v == name }.sort[0][0]
     end
 
-    def self.ptr(addr)
-      @@latest.ptr addr
-    end
+    class << self
+      def ptr(addr)
+        latest.ptr addr
+      end
 
-    def self.ptr_buf(addr, size)
-      @@latest.ptr_buf addr, size
-    end
+      def ptr_buf(addr, size)
+        latest.ptr_buf addr, size
+      end
 
-    def self.ptr_fmt(addr, size, fmt)
-      @@latest.ptr_fmt addr, size, fmt
-    end
+      def ptr_fmt(addr, size, fmt)
+        latest.ptr_fmt addr, size, fmt
+      end
 
-    def self.MName(name) # rubocop:disable Style/MethodName
-      @@latest.MName name
+      def MName(name) # rubocop:disable Style/MethodName
+        latest.MName name
+      end
     end
   end # End of class ProcessMemoryEx
 
