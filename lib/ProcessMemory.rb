@@ -51,6 +51,8 @@ module ProcessMemory
         }
       end
 
+    end
+
     # コンストラクタ
     # @param [Integer] pid プロセスID
     def initialize(pid)
