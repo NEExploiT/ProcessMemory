@@ -1,6 +1,12 @@
 module ProcessMemory
   # ProcessMemoryExに幾つか追加
   class ProcessMemoryEx
+    # inspect modulesを入れるとあまりに長いので隠す
+    def inspect
+      # #<ProcessMemory::ProcessMemoryEx:0x000000029dc158 @pid=13508, @h_process=160, @target_is_x64=true>x
+      format("\#<#{self.class.name}:%0#{I_am_x64 ? 16 : 8}x @pid=#{@pid}, @h_process=#{@h_process}," \
+      " @target_is_x64=#{@target_is_x64}>", __id__)
+    end
     class << self
       def ptr(addr)
         latest.ptr addr
