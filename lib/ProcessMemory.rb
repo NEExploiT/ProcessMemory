@@ -101,6 +101,31 @@ module ProcessMemory
       @target_is_x64 ? ptr_fmt(addr, 8, 'VV').tap{|l, h| break h << 32 | l } : ptr_fmt(addr, 4, 'V')
     end
 
+    # 指定アドレスから文字列を読み取る
+    # @param addr [Integer] 読み取り元アドレス
+    # @param initial_size [Integer] 読み取りサイズの初期値 終端文字(\0)が見つからない場合自動で拡張する(default:32)
+    # @option atomic_size [Integer] 読み取り単位 (default: 1byte)
+    # @option encoding [Encoding] 読み取りに使うEncoding 無指定の場合atomic_sizeによりUTF8,16,32のいずれかと推定する
+    # @option encode [Encoding] 読み取り後指定符号で符号化する (default: Encoding::UTF_8)
+    # @return [String] 読み取った文字列
+    def strdup(addr, initial_size = 32, atomic_size: 1, encoding: nil, encode: Encoding::UTF_8)
+      size = initial_size * atomic_size
+      fmt = ['C*', 'S*', nil, 'V*'][atomic_size - 1]
+      buf = nil
+      encoding ||= [Encoding::UTF_8, Encoding::UTF_16, nil, Encoding::UTF_32][atomic_size - 1]
+      raise 'unknown atomic_size.' unless fmt
+      loop{
+        buf = ptr_fmt(addr, size, fmt).take_while(&:nonzero?)
+        break unless buf.size == size
+        size *= 2
+      }
+      if encoding == encode
+        buf.pack(fmt).force_encoding(encoding)
+      else
+        buf.pack(fmt).encode(encode, encoding)
+      end
+    end
+
     # modules
     # アドレスをキー,モジュール名を値としたハッシュを返す
     # 重複を考えてモジュール名をキーとしない
