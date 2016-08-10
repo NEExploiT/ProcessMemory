@@ -1,5 +1,6 @@
 # coding: utf-8
 require 'ProcessMemory/version'
+require 'ProcessMemory/util'
 require 'fiddle/import'
 require 'fiddle/types'
 
@@ -37,13 +38,25 @@ module ProcessMemory
     end
   end
 
-=begin
-OpenProcessで取得したハンドルを閉じてないが
-ファイナライザで開放した方がいいかも？(大量にオープンしない限り問題は起きないはず)
-適当解放処理実装した
-=end
+  # ProcessMemory External
   class ProcessMemoryEx
-    @@i_am_x64 = WinMemAPI::SIZEOF_PTR == 8
+    I_am_x64 = WinMemAPI::SIZEOF_PTR == 8
+
+    class << self
+      def finalizer_callback(id, handle)
+        @handles_table   ||= {}
+        @handles_table[id] = handle
+        proc{|final_id|
+          WinMemAPI.CloseHandle(@handles_table[final_id])
+        }
+      end
+
+      # 直前に開いたProcessMemoryExを返す
+      def latest
+        # 子孫クラスからも書き換えられる事を想定しているのでクラス変数を使う
+        @@latest
+      end
+    end
 
     # コンストラクタ
     # @param [Integer] pid プロセスID
@@ -51,16 +64,13 @@ OpenProcessで取得したハンドルを閉じてないが
       @pid       = pid
       @h_process = WinMemAPI.OpenProcess(WinMemAPI::OpenProcFlg::READ_INFO, 0, pid)
       # オープン失敗
-      raise ArgumentError, "process open failed. pid:#{@pid}" if @h_process == 0
+      raise ArgumentError, "process open failed. pid:#{@pid}" if @h_process.zero?
 
       @target_is_x64 = detect_x64
 
-      @@latest = self
-
-      # 一応解放処理
-      at_exit{
-        WinMemAPI.CloseHandle(@h_process)
-      }
+      @@latest = self # rubocop:disable Style/ClassVars
+      # ファイナライザに登録
+      ObjectSpace.define_finalizer(self, ProcessMemoryEx.finalizer_callback(self.__id__, @h_process))
     end
 
     # 指定サイズ読み込む
@@ -91,6 +101,31 @@ OpenProcessで取得したハンドルを閉じてないが
       @target_is_x64 ? ptr_fmt(addr, 8, 'VV').tap{|l, h| break h << 32 | l } : ptr_fmt(addr, 4, 'V')
     end
 
+    # 指定アドレスから文字列を読み取る
+    # @param addr [Integer] 読み取り元アドレス
+    # @param initial_size [Integer] 読み取りサイズの初期値 終端文字(\0)が見つからない場合自動で拡張する(default:32)
+    # @option atomic_size [Integer] 読み取り単位 (default: 1byte)
+    # @option encoding [Encoding] 読み取りに使うEncoding 無指定の場合atomic_sizeによりUTF8,16,32のいずれかと推定する
+    # @option encode [Encoding] 読み取り後指定符号で符号化する (default: Encoding::UTF_8)
+    # @return [String] 読み取った文字列
+    def strdup(addr, initial_size = 32, atomic_size: 1, encoding: nil, encode: Encoding::UTF_8)
+      size = initial_size * atomic_size
+      fmt = ['C*', 'S*', nil, 'V*'][atomic_size - 1]
+      buf = nil
+      encoding ||= [Encoding::UTF_8, Encoding::UTF_16, nil, Encoding::UTF_32][atomic_size - 1]
+      raise 'unknown atomic_size.' unless fmt
+      loop{
+        buf = ptr_fmt(addr, size, fmt).take_while(&:nonzero?)
+        break unless buf.size == size
+        size *= 2
+      }
+      if encoding == encode
+        buf.pack(fmt).force_encoding(encoding)
+      else
+        buf.pack(fmt).encode(encode, encoding)
+      end
+    end
+
     # modules
     # アドレスをキー,モジュール名を値としたハッシュを返す
     # 重複を考えてモジュール名をキーとしない
@@ -103,35 +138,31 @@ OpenProcessで取得したハンドルを閉じてないが
     # true => 64bit process
     # false => 32bit process
     def detect_x64
-      lpcbNeeded = "\0\0\0\0\0\0\0\0".b
+      lpcb_needed = "\0\0\0\0\0\0\0\0".b
 
-      WinMemAPI.EnumProcessModulesEx(@h_process, 0, 0, lpcbNeeded, WinMemAPI::EnumFilterFlg::LIST_MODULES_32BIT)
-      (lpcbNeeded.unpack('V')[0]) == 0
+      WinMemAPI.EnumProcessModulesEx(@h_process, 0, 0, lpcb_needed, WinMemAPI::EnumFilterFlg::LIST_MODULES_32BIT)
+      (lpcb_needed.unpack('V')[0]).zero?
     end
 
     def modules_read
       len = 32 * WinMemAPI::SIZEOF_PTR
       initial_len = len
-      lphModule = "\0" * len
-      lpcbNeeded = "\0\0\0\0\0\0\0\0".b
+      lph_module = "\0" * len
+      lpcb_needed = "\0\0\0\0\0\0\0\0".b
       # 対象プロセスが64bitの場合は変更する
       flg = @target_is_x64 ? WinMemAPI::EnumFilterFlg::LIST_MODULES_64BIT : WinMemAPI::EnumFilterFlg::LIST_MODULES_32BIT
 
-      WinMemAPI.EnumProcessModulesEx(@h_process, lphModule, len, lpcbNeeded, flg)
-      if (len = lpcbNeeded.unpack('V')[0]) > initial_len
-        lphModule = "\0" * len
-        WinMemAPI.EnumProcessModulesEx(@h_process, lphModule, len, lpcbNeeded, flg)
-      elsif len == 0 && !@target_is_x64
-        # ターゲットはおそらく64bit(もしくは権限不足,openに失敗)
-        @target_is_x64 = true
-        return modules_read
-      elsif len == 0
+      WinMemAPI.EnumProcessModulesEx(@h_process, lph_module, len, lpcb_needed, flg)
+      if (len = lpcb_needed.unpack('V')[0]) > initial_len
+        lph_module = "\0" * len
+        WinMemAPI.EnumProcessModulesEx(@h_process, lph_module, len, lpcb_needed, flg)
+      elsif len.zero?
         # 失敗
         return nil
       end
 
-      result = lphModule.unpack('V*')
-      if @@i_am_x64
+      result = lph_module.unpack('V*')
+      if I_am_x64
         # hostが64bitの場合 ポインタサイズが64bitなので一気に変換はできない
         result = result.each_slice(2).map{|l, h|
           h << 32 | l
@@ -142,7 +173,7 @@ OpenProcessで取得したハンドルを閉じてないが
       @main_module_addr ||= result[0]
 
       # GetModuleBaseNameでベース名を取得する
-      result.select{|it| it != 0 }.map{|it|
+      result.select(&:nonzero?).map{|it|
         namelen = 260
         namebuf = "\0".encode(Encoding::UTF_16LE) * namelen
         result_len = WinMemAPI.GetModuleBaseNameW(@h_process, it, namebuf, namelen)
@@ -169,44 +200,5 @@ OpenProcessで取得したハンドルを閉じてないが
     def MName(name) # rubocop:disable Style/MethodName
       modules.select{|_, v| v == name }.sort[0][0]
     end
-
-    def self.ptr(addr)
-      @@latest.ptr addr
-    end
-
-    def self.ptr_buf(addr, size)
-      @@latest.ptr_buf addr, size
-    end
-
-    def self.ptr_fmt(addr, size, fmt)
-      @@latest.ptr_fmt addr, size, fmt
-    end
-
-    def self.MName(name) # rubocop:disable Style/MethodName
-      @@latest.MName name
-    end
   end # End of class ProcessMemoryEx
-
-  # ユーティリティーモジュール
-  # includeする事で、省略記法が使えるようになる
-  module ProcessMemoryUtil
-    module_function def ptr(addr)
-      ProcessMemoryEx.ptr addr
-    end
-
-    module_function def MName(name) # rubocop:disable Style/MethodName
-      ProcessMemoryEx.MName name
-    end
-
-    module_function def memoryutil_startup
-      if ARGV.empty?
-        puts '対象exeのpidを入力してください'
-        s = gets.chop
-      else
-        s = ARGV[0]
-      end
-
-      ProcessMemoryEx.new s.to_i 0
-    end
-  end # End of Module ProcessMemoryUtil
 end # End of Module ProcessMemory

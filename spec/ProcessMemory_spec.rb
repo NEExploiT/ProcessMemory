@@ -57,4 +57,46 @@ describe ProcessMemory do
       expect(mem.ptr_fmt(testp, testp.size, 'qq')).to eq(test_data)
     end
   end # End of describe '#ptr_fmt'
+
+  describe '#strdup' do
+    teststr = 'alphabet/日本語まじり表現の恐怖'
+    it 'read utf8 string' do
+      expect(mem.strdup(Fiddle::Pointer[teststr.encode(Encoding::UTF_8)])).to eq teststr
+    end
+    it 'read utf16 string' do
+      expect(mem.strdup(Fiddle::Pointer[teststr.encode(Encoding::UTF_16)], atomic_size: 2)).to eq teststr
+    end
+    it 'read cp932 string' do
+      expect(mem.strdup(Fiddle::Pointer[teststr.encode(Encoding::CP932)], encoding: Encoding::CP932)).to eq teststr
+    end
+    it 'read from cp932 to utf8' do
+      expect(
+        mem.strdup(Fiddle::Pointer[teststr.encode(Encoding::CP932)], encoding: Encoding::CP932).encoding
+      ).to eq Encoding::UTF_8
+    end
+    it 'read from cp932 to utf16' do
+      expect(
+        mem.strdup(Fiddle::Pointer[teststr.encode(Encoding::CP932)],
+                   encoding: Encoding::CP932, encode: Encoding::UTF_16).encoding
+      ).to eq Encoding::UTF_16
+    end
+    it 'bad case, \0 into string' do
+      badteststr = "alphabet日本語まじり\0表現の恐怖"
+      expect(
+        mem.strdup(Fiddle::Pointer[badteststr.encode(Encoding::UTF_8)])
+      ).to_not eq badteststr
+    end
+  end
+
+  describe ProcessMemory::ProcessMemoryUtil do
+    before :all do
+      ProcessMemory::ProcessMemoryEx.new Process.pid
+    end
+    describe '.ptr' do
+      it 'read int32' do
+        testp = Fiddle::Pointer[[TESTINT32].pack('q')]
+        expect(ProcessMemory::ProcessMemoryUtil.ptr(testp)).to eq(TESTINT32)
+      end
+    end
+  end
 end # describe ProcessMemory
