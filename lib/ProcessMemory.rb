@@ -91,7 +91,7 @@ module ProcessMemory
     # @return 指定アドレスを読み込んだ結果にunpackしたもの もしsizeが1以下の場合は最初の要素を返す
     def ptr_fmt(addr, size, fmt)
       ary = ptr_buf(addr, size).unpack(fmt)
-      ary.size == 1 ? ary[0] : ary
+      fmt[-1] != '*' && ary.size == 1 ? ary[0] : ary
     end
 
     # 指定アドレスから4byteもしくは8byte読み込みリトルエンディアンの整数とみなした結果を返す

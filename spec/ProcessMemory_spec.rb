@@ -56,6 +56,14 @@ describe ProcessMemory do
       testp = Fiddle::Pointer[test_data.pack('qq')]
       expect(mem.ptr_fmt(testp, testp.size, 'qq')).to eq(test_data)
     end
+    describe 'fmt suffix = *' do
+      testp = Fiddle::Pointer[[TESTINT64].pack('q')]
+      subject{ mem.ptr_fmt(testp, 8, 'q*') }
+      it 'should be instance of Array' do
+        is_expected.to be_instance_of(Array)
+        is_expected.to eq [TESTINT64]
+      end
+    end
   end # End of describe '#ptr_fmt'
 
   describe '#strdup' do
